@@ -25,6 +25,11 @@ $Test      = (Nastavitev 'TEST' '') -in @('1', 'true')
 $Meja      = $MojTermin.AddDays(-$MinDni)
 $StanjeDat = Join-Path $PSScriptRoot 'stanje.json'
 
+# Na GitHubu brez teme ne bi prislo nobeno obvestilo, zato raje pade z napako.
+if ($env:GITHUB_ACTIONS -eq 'true' -and -not $NtfyTema) {
+    throw 'Secret NTFY_TEMA ni nastavljen (Settings -> Secrets and variables -> Actions).'
+}
+
 # Filtri: kat. B, izpitni center 18, lokacija 223 (Kranj). page = teden od tega naprej.
 $PodatkiUrl = 'https://e-uprava.gov.si/si/javne-evidence/prosti-termini-zemljevid/content/singleton.html' +
     '?lang=si&type=-&cat=6&izpitniCenter=18&lokacija=223&offset=0' +
