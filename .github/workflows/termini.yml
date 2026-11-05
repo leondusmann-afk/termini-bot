@@ -1,0 +1,48 @@
+name: Termini bot
+
+on:
+  schedule:
+    # Vsakih 5 minut (GitHub zagone po urniku vcasih zamakne za nekaj minut).
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Poslji testno obvestilo'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+# Nikoli dva zagona hkrati, da si ne prepisujeta stanja.
+concurrency:
+  group: termini-bot
+  cancel-in-progress: false
+
+jobs:
+  preveri:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preveri termine
+        shell: pwsh
+        env:
+          MOJ_TERMIN: '2027-02-02'
+          MIN_DNI: '7'
+          NTFY_TEMA: ${{ secrets.NTFY_TEMA }}
+          TEST: ${{ inputs.test && '1' || '' }}
+        run: ./bot.ps1
+
+      # Shrani, kaj je bilo ze javljeno (in enkrat na dan zabelezi, da bot dela,
+      # kar repozitorij ohranja aktiven, da GitHub ne izklopi urnika).
+      - name: Shrani stanje
+        run: |
+          if ! git diff --quiet -- stanje.json; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add stanje.json
+            git commit -m 'Posodobi stanje'
+            git push
+          fi
