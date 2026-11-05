@@ -35,7 +35,7 @@ jobs:
           TEST: ${{ inputs.test && '1' || '' }}
         run: ./bot.ps1
 
-      # Shrani, kaj je bilo ze javljeno (in enkrat na dan zabelezi, da bot dela,
+      # Shrani, kaj je bilo ze javljeno (in vsake 4 ure zabelezi povzetek,
       # kar repozitorij ohranja aktiven, da GitHub ne izklopi urnika).
       - name: Shrani stanje
         run: |

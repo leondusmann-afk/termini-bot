@@ -123,14 +123,14 @@ if (Test-Path $StanjeDat) {
     if ($vsebina) { $stanje = $vsebina | ConvertFrom-Json }
 }
 $javljeni      = @(if ($stanje -and $stanje.javljeni) { $stanje.javljeni })
-$zadnjiZivSem  = if ($stanje -and $stanje.zadnjiZivSem) { [string]$stanje.zadnjiZivSem } else { '' }
+$zadnjiPovzetek = if ($stanje -and $stanje.zadnjiPovzetek) { [string]$stanje.zadnjiPovzetek } else { '' }
 $napakeZapored = if ($stanje -and $stanje.napakeZapored) { [int]$stanje.napakeZapored } else { 0 }
 
 function Shrani-Stanje {
     [pscustomobject]@{
-        javljeni      = @($javljeni)
-        zadnjiZivSem  = $zadnjiZivSem
-        napakeZapored = $napakeZapored
+        javljeni       = @($javljeni)
+        zadnjiPovzetek = $zadnjiPovzetek
+        napakeZapored  = $napakeZapored
     } | ConvertTo-Json | Set-Content $StanjeDat -Encoding ASCII
 }
 
@@ -170,17 +170,23 @@ if ($novi.Count -gt 0) {
 # Pozabi termine, ki jih ni vec; ce se spet sprostijo, jih javi znova.
 $javljeni = @($dobri | ForEach-Object { $_.Kljuc })
 
-$najzgodnejsi = if ($termini.Count) { Opis $termini[0] } else { 'ni prostih terminov' }
+# Seznam prostih terminov po dnevih, npr. "pon. 1. 2.: 07:30 (2), 12:00".
+$poDnevih = @($termini | Group-Object { $_.Datum.ToString('yyyy-MM-dd') } | ForEach-Object {
+    $ure = ($_.Group | ForEach-Object { if ($_.Prosta -gt 1) { "$($_.Ura) ($($_.Prosta))" } else { $_.Ura } }) -join ', '
+    '{0}: {1}' -f $_.Group[0].Datum.ToString('ddd d. M.', $slo), $ure
+})
+$povzetek = if ($poDnevih.Count) { ($poDnevih | Select-Object -First 10) -join "`n" } else { 'Ni prostih terminov za voznjo.' }
+$povzetek += "`nDovolj zgodnjih (do $($Meja.ToString('d. M.'))): $($dobri.Count)"
 
 if ($Test) {
-    Poslji 'Termini bot: test' "Bot dela.`nNajzgodnejsi prost termin: $najzgodnejsi`nDovolj zgodnjih (do $($Meja.ToString('d. M.'))): $($dobri.Count)" 'default' 'test_tube'
+    Poslji 'Termini bot: test' "Bot dela. Prosti termini v Kranju:`n$povzetek" 'default' 'test_tube'
 }
 
-# Enkrat na dan (po 8. uri) sporoci, da bot se dela.
-$danesNiz = $danes.ToString('yyyy-MM-dd')
-if ($zdaj.Hour -ge 8 -and $zadnjiZivSem -ne $danesNiz) {
-    Poslji 'Termini bot dela' "Najzgodnejsi prost termin: $najzgodnejsi`nIscem termine do $($Meja.ToString('d. M. yyyy'))." 'low' 'robot'
-    $zadnjiZivSem = $danesNiz
+# Vsake 4 ure (00, 04, 08, 12, 16, 20) poslje tih povzetek; ta hkrati pove, da bot se dela.
+$blok = '{0}-{1}' -f $danes.ToString('yyyy-MM-dd'), [math]::Floor($zdaj.Hour / 4)
+if ($zadnjiPovzetek -ne $blok) {
+    Poslji 'Prosti termini - voznja Kranj' $povzetek 'low' 'calendar'
+    $zadnjiPovzetek = $blok
 }
 
 Shrani-Stanje
